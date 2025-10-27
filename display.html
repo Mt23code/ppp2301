@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padel Score Display - Firebase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            letter-spacing: 2px;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1em;
+        }
+        
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+        }
+        
+        .status-indicator.connected {
+            background: #2ecc71;
+            animation: none;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.6);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .main-display {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .setup-message {
+            text-align: center;
+            font-size: 3em;
+            animation: fadeIn 1s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .scoreboard {
+            display: none;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .match-info-bar {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .match-status {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #3498db;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        .sets-games {
+            font-size: 1.5em;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .teams-container {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            align-items: stretch;
+        }
+        
+        .team-display {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 30px;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            backdrop-filter: blur(10px);
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .team-display.team1 {
+            border-color: #667eea;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .team-display.team2 {
+            border-color: #f5576c;
+            box-shadow: 0 10px 40px rgba(245, 87, 108, 0.3);
+        }
+        
+        .team-display.serving {
+            transform: scale(1.02);
+            box-shadow: 0 15px 60px rgba(255, 255, 255, 0.2);
+        }
+        
+        .server-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 30px;
+            height: 30px;
+            background: #f1c40f;
+            border-radius: 50%;
+            animation: servePulse 1.5s infinite;
+            box-shadow: 0 0 20px rgba(241, 196, 15, 0.6);
+        }
+        
+        @keyframes servePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .team-name {
+            font-size: 3em;
+            margin-bottom: 30px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .team-display.team1 .team-name {
+            color: #667eea;
+        }
+        
+        .team-display.team2 .team-name {
+            color: #f5576c;
+        }
+        
+        .team-points {
+            font-size: 10em;
+            font-weight: bold;
+            line-height: 1;
+            margin-bottom: 20px;
+            text-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .team-stats {
+            display: flex;
+            gap: 40px;
+            font-size: 1.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .stat-label {
+            font-size: 0.6em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+        }
+        
+        .winner-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .winner-content {
+            text-align: center;
+            padding: 60px;
+            animation: celebrate 1s ease;
+        }
+        
+        @keyframes celebrate {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.1) rotate(2deg); }
+            75% { transform: scale(1.1) rotate(-2deg); }
+        }
+        
+        .winner-trophy {
+            font-size: 8em;
+            margin-bottom: 30px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .winner-title {
+            font-size: 4em;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #f093fb 0%, #f5576c 50%, #feca57 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 5px;
+        }
+        
+        .winner-name {
+            font-size: 6em;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+        
+        .final-score {
+            font-size: 2.5em;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .tiebreak-indicator {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 10px 30px;
+            border-radius: 30px;
+            font-size: 1.5em;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            animation: tiebreakPulse 2s infinite;
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.5);
+        }
+        
+        @keyframes tiebreakPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        @media (max-width: 1200px) {
+            .team-points {
+                font-size: 7em;
+            }
+            
+            .team-name {
+                font-size: 2.5em;
+            }
+            
+            .teams-container {
+                gap: 20px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .teams-container {
+                flex-direction: column;
+            }
+            
+            .team-points {
+                font-size: 6em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎾 PADEL MATCH</h1>
+        <div class="connection-status">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span id="statusText">CONNECTING...</span>
+        </div>
+    </div>
+    
+    <div class="main-display">
+        <div class="setup-message" id="setupMessage">
+            Waiting for match setup...
+        </div>
+        
+        <div class="scoreboard" id="scoreboard">
+            <div class="match-info-bar">
+                <div class="match-status" id="matchStatus">IN PROGRESS</div>
+                <div class="sets-games" id="setsGames">Sets: 0 - 0 | Games: 0 - 0</div>
+            </div>
+            
+            <div class="teams-container">
+                <div class="team-display team1" id="team1Display">
+                    <div class="server-indicator" id="team1Server" style="display: none;"></div>
+                    <div class="team-name" id="team1Name">TEAM 1</div>
+                    <div class="team-points" id="team1Points">0</div>
+                    <div class="team-stats">
+                        <div class="stat">
+                            <div class="stat-label">Sets</div>
+                            <div class="stat-value" id="team1Sets">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Games</div>
+                            <div class="stat-value" id="team1Games">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="team-display team2" id="team2Display">
+                    <div class="server-indicator" id="team2Server" style="display: none;"></div>
+                    <div class="team-name" id="team2Name">TEAM 2</div>
+                    <div class="team-points" id="team2Points">0</div>
+                    <div class="team-stats">
+                        <div class="stat">
+                            <div class="stat-label">Sets</div>
+                            <div class="stat-value" id="team2Sets">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Games</div>
+                            <div class="stat-value" id="team2Games">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="winner-overlay" id="winnerOverlay">
+        <div class="winner-content">
+            <div class="winner-trophy">🏆</div>
+            <div class="winner-title">WINNER</div>
+            <div class="winner-name" id="winnerName">TEAM 1</div>
+            <div class="final-score" id="finalScore"></div>
+        </div>
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+    
+    <script>
+        // Initialize Firebase
+        let db;
+        let matchRef;
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            matchRef = db.ref('matches/' + MATCH_ID);
+            
+            document.getElementById('statusIndicator').classList.add('connected');
+            document.getElementById('statusText').textContent = 'CONNECTED';
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            document.getElementById('statusText').textContent = 'CONFIG ERROR';
+        }
+        
+        function formatScore(points) {
+            if (points === 'AD') return 'AD';
+            return points;
+        }
+        
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Update timer display separately
+        let timerUpdateInterval = null;
+        
+        function updateTimerDisplay() {
+            matchRef.once('value', (snapshot) => {
+                const state = snapshot.val();
+                if (state && state.matchStatus === 'playing' && state.elapsedTime !== undefined && state.elapsedTime > 0) {
+                    const timeString = formatTime(state.elapsedTime);
+                    if (!state.tiebreak) {
+                        document.getElementById('matchStatus').innerHTML = 
+                            '<span style="font-size: 1.6em; letter-spacing: 2px;">⏱️ ' + timeString + '</span>';
+                    }
+                }
+            });
+        }
+        
+        // Listen for state changes
+        matchRef.on('value', (snapshot) => {
+            const state = snapshot.val();
+            if (!state) return;
+            
+            if (state.matchStatus === 'setup') {
+                document.getElementById('setupMessage').style.display = 'block';
+                document.getElementById('scoreboard').style.display = 'none';
+                document.getElementById('winnerOverlay').style.display = 'none';
+                if (timerUpdateInterval) {
+                    clearInterval(timerUpdateInterval);
+                    timerUpdateInterval = null;
+                }
+            } else if (state.matchStatus === 'playing') {
+                // Start timer update interval if not already running
+                if (!timerUpdateInterval && state.elapsedTime !== undefined && state.elapsedTime > 0) {
+                    timerUpdateInterval = setInterval(updateTimerDisplay, 1000);
+                }
+                document.getElementById('setupMessage').style.display = 'none';
+                document.getElementById('scoreboard').style.display = 'flex';
+                document.getElementById('winnerOverlay').style.display = 'none';
+                
+                document.getElementById('team1Name').textContent = state.team1.name.toUpperCase();
+                document.getElementById('team2Name').textContent = state.team2.name.toUpperCase();
+                
+                const score1 = state.tiebreak ? state.team1.points : formatScore(state.team1.points);
+                const score2 = state.tiebreak ? state.team2.points : formatScore(state.team2.points);
+                document.getElementById('team1Points').textContent = score1;
+                document.getElementById('team2Points').textContent = score2;
+                
+                document.getElementById('team1Sets').textContent = state.team1.sets;
+                document.getElementById('team2Sets').textContent = state.team2.sets;
+                document.getElementById('team1Games').textContent = state.team1.games;
+                document.getElementById('team2Games').textContent = state.team2.games;
+                
+                // Display clock instead of "IN PROGRESS" if timer is active
+                if (state.elapsedTime !== undefined && state.elapsedTime > 0) {
+                    const timeString = formatTime(state.elapsedTime);
+                    if (state.tiebreak) {
+                        document.getElementById('matchStatus').innerHTML = 
+                            '<span class="tiebreak-indicator">⚡ TIEBREAK ⚡</span>';
+                    } else {
+                        document.getElementById('matchStatus').innerHTML = 
+                            '<span style="font-size: 1.6em; letter-spacing: 2px;">⏱️ ' + timeString + '</span>';
+                    }
+                } else {
+                    let statusText = state.tiebreak ? 'TIEBREAK' : 'IN PROGRESS';
+                    document.getElementById('matchStatus').textContent = statusText;
+                    
+                    if (state.tiebreak) {
+                        document.getElementById('matchStatus').innerHTML = 
+                            '<span class="tiebreak-indicator">⚡ TIEBREAK ⚡</span>';
+                    }
+                }
+                
+                document.getElementById('setsGames').textContent = 
+                    `Sets: ${state.team1.sets} - ${state.team2.sets} | Games: ${state.team1.games} - ${state.team2.games}`;
+                
+                document.getElementById('team1Server').style.display = state.server === 1 ? 'block' : 'none';
+                document.getElementById('team2Server').style.display = state.server === 2 ? 'block' : 'none';
+                
+                if (state.server === 1) {
+                    document.getElementById('team1Display').classList.add('serving');
+                    document.getElementById('team2Display').classList.remove('serving');
+                } else {
+                    document.getElementById('team2Display').classList.add('serving');
+                    document.getElementById('team1Display').classList.remove('serving');
+                }
+                
+            } else if (state.matchStatus === 'finished') {
+                // Stop timer interval
+                if (timerUpdateInterval) {
+                    clearInterval(timerUpdateInterval);
+                    timerUpdateInterval = null;
+                }
+                
+                document.getElementById('scoreboard').style.display = 'none';
+                document.getElementById('winnerOverlay').style.display = 'flex';
+                
+                const winnerName = state.winner === 1 ? state.team1.name : state.team2.name;
+                document.getElementById('winnerName').textContent = winnerName.toUpperCase();
+                document.getElementById('finalScore').textContent = 
+                    `Sets: ${state.team1.sets} - ${state.team2.sets}\nGames: ${state.team1.games} - ${state.team2.games}`;
+            }
+        });
+    </script>
+</body>
+</html>
